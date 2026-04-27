@@ -1,6 +1,6 @@
 {
-  "name": "@catalizo/catzprint",
-  "version": "1.0.0",
+  "name": "catzprint",
+  "version": "1.0.1",
   "description": "TypeScript SDK for CatzPrint remote printing service",
   "author": {
     "name": "Catalizo Digital Solutions LLC",
