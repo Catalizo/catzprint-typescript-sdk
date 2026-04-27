@@ -1,0 +1,64 @@
+{
+  "name": "@catalizo/catzprint",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for CatzPrint remote printing service",
+  "author": {
+    "name": "Catalizo Digital Solutions LLC",
+    "email": "developers@catalizo.com"
+  },
+  "license": "MIT",
+  "homepage": "https://catzprint.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Catalizo/catzprint-typescript-sdk.git"
+  },
+  "keywords": [
+    "catzprint",
+    "receipt",
+    "printing",
+    "pos",
+    "thermal",
+    "sdk",
+    "catalizo"
+  ],
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/types/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "npm run build:esm && npm run build:cjs && npm run build:types",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:types": "tsc -p tsconfig.types.json",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src tests --ext .ts",
+    "prepublishOnly": "npm run build && npm test",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.12.7",
+    "@typescript-eslint/eslint-plugin": "^7.7.1",
+    "@typescript-eslint/parser": "^7.7.1",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
