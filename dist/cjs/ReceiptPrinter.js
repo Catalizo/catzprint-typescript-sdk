@@ -17,6 +17,7 @@ exports.ReceiptPrinter = void 0;
  *   .line()
  *   .feed(2)
  *   .cut()
+ *   .qr()
  *   .getJson();
  * ```
  */
@@ -32,25 +33,25 @@ class ReceiptPrinter {
      */
     setTextSize(width, height) {
         if (width < 1 || height < 1) {
-            throw new RangeError('Text size must be positive integers');
+            throw new RangeError("Text size must be positive integers");
         }
-        this.commands.push({ action: 'setTextSize', width, height });
+        this.commands.push({ action: "setTextSize", width, height });
         return this;
     }
     // ── Alignment ────────────────────────────────────────────────────────────
     /** Align subsequent text to the centre. */
     centerAlign() {
-        this.commands.push({ action: 'align', value: 'center' });
+        this.commands.push({ action: "align", value: "center" });
         return this;
     }
     /** Align subsequent text to the left. */
     leftAlign() {
-        this.commands.push({ action: 'align', value: 'left' });
+        this.commands.push({ action: "align", value: "left" });
         return this;
     }
     /** Align subsequent text to the right. */
     rightAlign() {
-        this.commands.push({ action: 'align', value: 'right' });
+        this.commands.push({ action: "align", value: "right" });
         return this;
     }
     // ── Content ──────────────────────────────────────────────────────────────
@@ -60,19 +61,42 @@ class ReceiptPrinter {
      */
     text(content) {
         if (!content.trim()) {
-            throw new Error('Text content cannot be empty');
+            throw new Error("Text content cannot be empty");
         }
-        this.commands.push({ action: 'text', content });
+        this.commands.push({ action: "text", content });
+        return this;
+    }
+    /**
+     * Print a QR code.
+     * @throws {Error} If content is empty, size invalid, or alignment invalid.
+     */
+    qr(content, size = 8, alignment = "center") {
+        if (!content.trim()) {
+            throw new Error("QR content cannot be empty");
+        }
+        if (size < 1 || size > 8) {
+            throw new Error("QR size must be between 1 and 8");
+        }
+        const normalized = alignment.trim().toLowerCase();
+        if (!["left", "center", "right"].includes(normalized)) {
+            throw new Error("Alignment must be 'left', 'center', or 'right'");
+        }
+        this.commands.push({
+            action: "qr",
+            content,
+            size,
+            alignment: normalized,
+        });
         return this;
     }
     /** Print two strings side-by-side (left / right columns). */
     twoColumnText(left, right) {
-        this.commands.push({ action: 'twoColumnText', left, right });
+        this.commands.push({ action: "twoColumnText", left, right });
         return this;
     }
     /** Print a full-width horizontal rule. */
     line() {
-        this.commands.push({ action: 'line' });
+        this.commands.push({ action: "line" });
         return this;
     }
     // ── Paper control ────────────────────────────────────────────────────────
@@ -82,14 +106,14 @@ class ReceiptPrinter {
      */
     feed(lines = 1) {
         if (lines < 1) {
-            throw new RangeError('Feed lines must be at least 1');
+            throw new RangeError("Feed lines must be at least 1");
         }
-        this.commands.push({ action: 'feed', lines });
+        this.commands.push({ action: "feed", lines });
         return this;
     }
     /** Cut the paper. */
     cut() {
-        this.commands.push({ action: 'cut' });
+        this.commands.push({ action: "cut" });
         return this;
     }
     // ── Serialisation ────────────────────────────────────────────────────────
@@ -99,7 +123,7 @@ class ReceiptPrinter {
      */
     getJson() {
         if (this.commands.length === 0) {
-            throw new Error('No commands to encode');
+            throw new Error("No commands to encode");
         }
         return JSON.stringify(this.commands, null, 2);
     }

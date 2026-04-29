@@ -1,15 +1,16 @@
 /** Alignment values accepted by the printer. */
-export type Alignment = 'left' | 'center' | 'right';
+export type Alignment = "left" | "center" | "right";
 
 /** Discriminated-union type for every command the printer understands. */
 export type PrinterCommand =
-  | { action: 'setTextSize'; width: number; height: number }
-  | { action: 'align'; value: Alignment }
-  | { action: 'text'; content: string }
-  | { action: 'twoColumnText'; left: string; right: string }
-  | { action: 'line' }
-  | { action: 'feed'; lines: number }
-  | { action: 'cut' };
+  | { action: "setTextSize"; width: number; height: number }
+  | { action: "align"; value: Alignment }
+  | { action: "text"; content: string }
+  | { action: "twoColumnText"; left: string; right: string }
+  | { action: "line" }
+  | { action: "feed"; lines: number }
+  | { action: "cut" }
+  | { action: "qr"; content: string; size: number; alignment: string };
 
 /**
  * Fluent builder that composes an array of ESC/POS-style printer commands
@@ -27,6 +28,7 @@ export type PrinterCommand =
  *   .line()
  *   .feed(2)
  *   .cut()
+ *   .qr()
  *   .getJson();
  * ```
  */
@@ -42,9 +44,9 @@ export class ReceiptPrinter {
    */
   setTextSize(width: number, height: number): this {
     if (width < 1 || height < 1) {
-      throw new RangeError('Text size must be positive integers');
+      throw new RangeError("Text size must be positive integers");
     }
-    this.commands.push({ action: 'setTextSize', width, height });
+    this.commands.push({ action: "setTextSize", width, height });
     return this;
   }
 
@@ -52,19 +54,19 @@ export class ReceiptPrinter {
 
   /** Align subsequent text to the centre. */
   centerAlign(): this {
-    this.commands.push({ action: 'align', value: 'center' });
+    this.commands.push({ action: "align", value: "center" });
     return this;
   }
 
   /** Align subsequent text to the left. */
   leftAlign(): this {
-    this.commands.push({ action: 'align', value: 'left' });
+    this.commands.push({ action: "align", value: "left" });
     return this;
   }
 
   /** Align subsequent text to the right. */
   rightAlign(): this {
-    this.commands.push({ action: 'align', value: 'right' });
+    this.commands.push({ action: "align", value: "right" });
     return this;
   }
 
@@ -76,21 +78,50 @@ export class ReceiptPrinter {
    */
   text(content: string): this {
     if (!content.trim()) {
-      throw new Error('Text content cannot be empty');
+      throw new Error("Text content cannot be empty");
     }
-    this.commands.push({ action: 'text', content });
+    this.commands.push({ action: "text", content });
+    return this;
+  }
+
+  /**
+   * Print a QR code.
+   * @throws {Error} If content is empty, size invalid, or alignment invalid.
+   */
+  qr(content: string, size: number = 8, alignment: string = "center"): this {
+    if (!content.trim()) {
+      throw new Error("QR content cannot be empty");
+    }
+
+    if (size < 1 || size > 8) {
+      throw new Error("QR size must be between 1 and 8");
+    }
+
+    const normalized = alignment.trim().toLowerCase();
+
+    if (!["left", "center", "right"].includes(normalized)) {
+      throw new Error("Alignment must be 'left', 'center', or 'right'");
+    }
+
+    this.commands.push({
+      action: "qr",
+      content,
+      size,
+      alignment: normalized as Alignment,
+    });
+
     return this;
   }
 
   /** Print two strings side-by-side (left / right columns). */
   twoColumnText(left: string, right: string): this {
-    this.commands.push({ action: 'twoColumnText', left, right });
+    this.commands.push({ action: "twoColumnText", left, right });
     return this;
   }
 
   /** Print a full-width horizontal rule. */
   line(): this {
-    this.commands.push({ action: 'line' });
+    this.commands.push({ action: "line" });
     return this;
   }
 
@@ -102,15 +133,15 @@ export class ReceiptPrinter {
    */
   feed(lines: number = 1): this {
     if (lines < 1) {
-      throw new RangeError('Feed lines must be at least 1');
+      throw new RangeError("Feed lines must be at least 1");
     }
-    this.commands.push({ action: 'feed', lines });
+    this.commands.push({ action: "feed", lines });
     return this;
   }
 
   /** Cut the paper. */
   cut(): this {
-    this.commands.push({ action: 'cut' });
+    this.commands.push({ action: "cut" });
     return this;
   }
 
@@ -122,7 +153,7 @@ export class ReceiptPrinter {
    */
   getJson(): string {
     if (this.commands.length === 0) {
-      throw new Error('No commands to encode');
+      throw new Error("No commands to encode");
     }
     return JSON.stringify(this.commands, null, 2);
   }

@@ -1,27 +1,32 @@
 /** Alignment values accepted by the printer. */
-export type Alignment = 'left' | 'center' | 'right';
+export type Alignment = "left" | "center" | "right";
 /** Discriminated-union type for every command the printer understands. */
 export type PrinterCommand = {
-    action: 'setTextSize';
+    action: "setTextSize";
     width: number;
     height: number;
 } | {
-    action: 'align';
+    action: "align";
     value: Alignment;
 } | {
-    action: 'text';
+    action: "text";
     content: string;
 } | {
-    action: 'twoColumnText';
+    action: "twoColumnText";
     left: string;
     right: string;
 } | {
-    action: 'line';
+    action: "line";
 } | {
-    action: 'feed';
+    action: "feed";
     lines: number;
 } | {
-    action: 'cut';
+    action: "cut";
+} | {
+    action: "qr";
+    content: string;
+    size: number;
+    alignment: string;
 };
 /**
  * Fluent builder that composes an array of ESC/POS-style printer commands
@@ -39,6 +44,7 @@ export type PrinterCommand = {
  *   .line()
  *   .feed(2)
  *   .cut()
+ *   .qr()
  *   .getJson();
  * ```
  */
@@ -61,6 +67,11 @@ export declare class ReceiptPrinter {
      * @throws {Error} If `content` is blank.
      */
     text(content: string): this;
+    /**
+     * Print a QR code.
+     * @throws {Error} If content is empty, size invalid, or alignment invalid.
+     */
+    qr(content: string, size?: number, alignment?: string): this;
     /** Print two strings side-by-side (left / right columns). */
     twoColumnText(left: string, right: string): this;
     /** Print a full-width horizontal rule. */
