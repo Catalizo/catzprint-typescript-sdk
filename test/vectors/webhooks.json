@@ -1,0 +1,65 @@
+[
+  {
+    "name": "valid",
+    "secret": "whsec_9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c",
+    "body": "{\"created_at\":\"2026-10-16T07:33:20Z\",\"data\":{\"job\":{\"copies\":1,\"id\":\"0b8a3f7e-1c2d-4e5f-8a9b-0c1d2e3f4a5b\",\"live\":true,\"status\":\"printed\",\"title\":\"Order #1042 — café\"}},\"org_id\":\"34c4671b-d2ab-4ddf-aaac-615786d5acac\",\"type\":\"job.printed\"}",
+    "header": "t=1760600000,v1=b2ffc444ad9c63cd3d6c55e390a8044358f5ad2db8c3cd14c6ec87dd6202f30f",
+    "now": 1760600010
+  },
+  {
+    "name": "valid_unicode",
+    "secret": "whsec_9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c",
+    "body": "{\"type\":\"job.created\",\"data\":{\"job\":{\"title\":\"Ünïcødé ✓ 🐱\"}},\"org_id\":\"x\",\"created_at\":\"2026-10-16T07:33:20Z\"}",
+    "header": "t=1760600000,v1=2c9503b029e19c79dea038e6ef3c62bcccc031e3b8048757acb7dd5953fa8269",
+    "now": 1760600000
+  },
+  {
+    "name": "valid_clock_skew_future",
+    "secret": "whsec_9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c",
+    "body": "{\"created_at\":\"2026-10-16T07:33:20Z\",\"data\":{\"job\":{\"copies\":1,\"id\":\"0b8a3f7e-1c2d-4e5f-8a9b-0c1d2e3f4a5b\",\"live\":true,\"status\":\"printed\",\"title\":\"Order #1042 — café\"}},\"org_id\":\"34c4671b-d2ab-4ddf-aaac-615786d5acac\",\"type\":\"job.printed\"}",
+    "header": "t=1760600120,v1=85300fafb8f9f7fffef2fc67a649dec6c99080cd688f858035297ef9c8c90c81",
+    "now": 1760600000
+  },
+  {
+    "name": "valid_at_tolerance_edge",
+    "secret": "whsec_9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c",
+    "body": "{\"created_at\":\"2026-10-16T07:33:20Z\",\"data\":{\"job\":{\"copies\":1,\"id\":\"0b8a3f7e-1c2d-4e5f-8a9b-0c1d2e3f4a5b\",\"live\":true,\"status\":\"printed\",\"title\":\"Order #1042 — café\"}},\"org_id\":\"34c4671b-d2ab-4ddf-aaac-615786d5acac\",\"type\":\"job.printed\"}",
+    "header": "t=1760600000,v1=b2ffc444ad9c63cd3d6c55e390a8044358f5ad2db8c3cd14c6ec87dd6202f30f",
+    "now": 1760600300
+  },
+  {
+    "name": "valid_multiple_v1",
+    "secret": "whsec_9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c",
+    "body": "{\"created_at\":\"2026-10-16T07:33:20Z\",\"data\":{\"job\":{\"copies\":1,\"id\":\"0b8a3f7e-1c2d-4e5f-8a9b-0c1d2e3f4a5b\",\"live\":true,\"status\":\"printed\",\"title\":\"Order #1042 — café\"}},\"org_id\":\"34c4671b-d2ab-4ddf-aaac-615786d5acac\",\"type\":\"job.printed\"}",
+    "header": "t=1760600000,v1=42c93db1b3ebe33f46ca6dd3b08744ebb0ba1bebf6eda7b68b8d3fffac76b426,v1=b2ffc444ad9c63cd3d6c55e390a8044358f5ad2db8c3cd14c6ec87dd6202f30f",
+    "now": 1760600000
+  },
+  {
+    "name": "tampered",
+    "secret": "whsec_9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c",
+    "body": "{\"created_at\":\"2026-10-16T07:33:20Z\",\"data\":{\"job\":{\"copies\":1,\"id\":\"0b8a3f7e-1c2d-4e5f-8a9b-0c1d2e3f4a5b\",\"live\":true,\"status\":\"printed\",\"title\":\"Order #1042 — café\"}},\"org_id\":\"34c4671b-d2ab-4ddf-aaac-615786d5acac\",\"type\":\"job.printed }",
+    "header": "t=1760600000,v1=b2ffc444ad9c63cd3d6c55e390a8044358f5ad2db8c3cd14c6ec87dd6202f30f",
+    "now": 1760600000
+  },
+  {
+    "name": "expired",
+    "secret": "whsec_9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c",
+    "body": "{\"created_at\":\"2026-10-16T07:33:20Z\",\"data\":{\"job\":{\"copies\":1,\"id\":\"0b8a3f7e-1c2d-4e5f-8a9b-0c1d2e3f4a5b\",\"live\":true,\"status\":\"printed\",\"title\":\"Order #1042 — café\"}},\"org_id\":\"34c4671b-d2ab-4ddf-aaac-615786d5acac\",\"type\":\"job.printed\"}",
+    "header": "t=1760600000,v1=b2ffc444ad9c63cd3d6c55e390a8044358f5ad2db8c3cd14c6ec87dd6202f30f",
+    "now": 1760600301
+  },
+  {
+    "name": "wrong_secret",
+    "secret": "whsec_not_the_right_one",
+    "body": "{\"created_at\":\"2026-10-16T07:33:20Z\",\"data\":{\"job\":{\"copies\":1,\"id\":\"0b8a3f7e-1c2d-4e5f-8a9b-0c1d2e3f4a5b\",\"live\":true,\"status\":\"printed\",\"title\":\"Order #1042 — café\"}},\"org_id\":\"34c4671b-d2ab-4ddf-aaac-615786d5acac\",\"type\":\"job.printed\"}",
+    "header": "t=1760600000,v1=b2ffc444ad9c63cd3d6c55e390a8044358f5ad2db8c3cd14c6ec87dd6202f30f",
+    "now": 1760600000
+  },
+  {
+    "name": "malformed_header",
+    "secret": "whsec_9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c",
+    "body": "{\"created_at\":\"2026-10-16T07:33:20Z\",\"data\":{\"job\":{\"copies\":1,\"id\":\"0b8a3f7e-1c2d-4e5f-8a9b-0c1d2e3f4a5b\",\"live\":true,\"status\":\"printed\",\"title\":\"Order #1042 — café\"}},\"org_id\":\"34c4671b-d2ab-4ddf-aaac-615786d5acac\",\"type\":\"job.printed\"}",
+    "header": "v1=deadbeef",
+    "now": 1760600000
+  }
+]
