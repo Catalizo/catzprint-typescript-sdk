@@ -113,6 +113,8 @@ await cz.printTemplate(templateId, { order: "1042", total: "9.99" }, { locationI
 Routing: give `printerId` to choose a printer, or `role` and/or `locationId` to let your routing rules
 (or the best ready printer with that role) decide.
 
+Printer names aren't unique (two stations can each have a "Kitchen"), so target printers by ID. `printers.list` returns each printer's `id`, `station_id`, `station_name`, `location_id` and `role`. Optional shortcut: in the CatzPrint console, open **Locations & stations** (**My devices** in a personal account), then a station, and click the ID under a printer's name to copy it.
+
 ### Jobs
 
 ```ts
