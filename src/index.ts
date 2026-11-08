@@ -11,11 +11,28 @@ export {
   RateLimitError,
   ServerError,
   ConnectionError,
+  PrinterError,
+  StationUnreachableError,
+  OutcomeUnknownError,
+  isOutcomeUnknown,
+  isPrinterOffline,
+  isOutOfPaper,
+  isCoverOpen,
+  isOfflineAllowanceExhausted,
+  isStationUnreachable,
   SignatureVerificationError,
   TimeoutError,
   errorFromResponse,
 } from "./errors.js";
-export type { CatzPrintErrorInit, FieldErrors } from "./errors.js";
+export type { CatzPrintErrorInit, FieldErrors, StationAttempt } from "./errors.js";
+export { LocalPrinting } from "./local/manager.js";
+export type { LocalOptions, LocalStation } from "./local/manager.js";
+export { FileTokenStore, MemoryTokenStore, InsecureTokenStoreError } from "./local/tokenStore.js";
+export type { StoredToken, TokenStore } from "./local/tokenStore.js";
+export { PinMismatchError, NoPinError } from "./local/transport.js";
+export { LocalTokens, LocalEndpoints } from "./resources/local.js";
+export type { CreateLocalTokenParams } from "./resources/local.js";
+export type * from "./local/types.js";
 export { Jobs, detectKind } from "./resources/jobs.js";
 export type { Bytes, CreateJobParams, JobTarget, ListJobsParams, ReprintParams, WaitForOptions } from "./resources/jobs.js";
 export { Printers } from "./resources/printers.js";

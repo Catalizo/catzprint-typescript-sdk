@@ -10,6 +10,7 @@ import {
 } from "../../src/index.js";
 import { HttpClient, backoffMs } from "../../src/http.js";
 import { apiError, fakeApi, job, KEY, ORG, send } from "./helpers.js";
+import { VERSION } from "../../src/version.js";
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 let api: Awaited<ReturnType<typeof fakeApi>> | undefined;
@@ -126,7 +127,7 @@ describe("CatzPrint over a fake API", () => {
       `/v1/orgs/${ORG}/printers?station_id=abc`,
     ]);
     expect(api.requests[0]!.headers.authorization).toBe(`Bearer ${KEY}`);
-    expect(api.requests[0]!.headers["user-agent"]).toBe("catzprint-node/2.1.3");
+    expect(api.requests[0]!.headers["user-agent"]).toBe(`catzprint-node/${VERSION}`);
     expect((await cz.whoami()).org_name).toBe("Shop");
     expect(api.requests).toHaveLength(3);
   });

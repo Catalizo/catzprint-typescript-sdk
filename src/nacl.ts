@@ -362,8 +362,18 @@ export function boxPublicFromSecret(secretKey: Uint8Array): Uint8Array {
 
 /** crypto_box_beforenm: HSalsa20(X25519(sk, pk), 0^16). */
 export function boxBeforeNm(publicKey: Uint8Array, secretKey: Uint8Array): Uint8Array {
-  const shared = diffieHellman({ privateKey: x25519Private(secretKey), publicKey: x25519Public(publicKey) });
-  return hsalsa20(new Uint8Array(shared), new Uint8Array(16));
+  let shared: Uint8Array;
+  try {
+    shared = new Uint8Array(diffieHellman({ privateKey: x25519Private(secretKey), publicKey: x25519Public(publicKey) }));
+  } catch {
+    shared = new Uint8Array(32); // OpenSSL refuses small-order points: treat like an all-zero secret
+  }
+  // A small-order public key gives an all-zero shared secret: anyone could
+  // open the box. Refuse it (checked without branching on secret bytes).
+  let acc = 0;
+  for (const b of shared) acc |= b;
+  if (acc === 0) throw new RangeError("The public key is a small-order X25519 point; refusing to seal to it.");
+  return hsalsa20(shared, new Uint8Array(16));
 }
 
 /** crypto_box: returns tag(16) || ciphertext. */

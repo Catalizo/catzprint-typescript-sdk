@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { ConflictError, TimeoutError } from "../errors.js";
+import { CatzPrintError, OutcomeUnknownError, TimeoutError } from "../errors.js";
+import { checkIdempotencyKey, markNotSent } from "../local/shared.js";
+import { cloudAmbiguous, isConflictInProgress, resendWhileInProgress, sealedRejected, sentAndLost } from "../local/conflict.js";
 import type { HttpClient } from "../http.js";
 import {
   FINAL_JOB_STATUSES,
@@ -37,6 +39,8 @@ export interface JobTarget {
   scheduledFor?: Date | string;
   /** Free-form options stored with the job. */
   options?: Record<string, unknown>;
+  /** Cancels the request (and any local fallback). */
+  signal?: AbortSignal;
 }
 
 export interface CreateJobParams extends JobTarget {
@@ -95,13 +99,34 @@ export interface ReprintParams {
   copies?: number;
 }
 
+/** A job create ready to send: the same body goes out on every attempt. */
+export interface PreparedCreate {
+  path: string;
+  body: Record<string, unknown>;
+  key: string;
+  signal?: AbortSignal;
+}
+
 /** What `Jobs` needs from the client. */
+/** Routes jobs to stations (see `LocalPrinting`). */
+export interface LocalRouter {
+  readonly mode: string;
+  create(params: CreateJobParams, jobs: Jobs): Promise<Job>;
+  getJob(id: string): Promise<JobWithEvents>;
+}
+
 export interface JobsContext {
   http: HttpClient;
+  local?: LocalRouter;
   orgId(): Promise<string>;
   seal(content: Uint8Array): Promise<string>;
+  /** Forgets the cached server key (the API couldn't decrypt a sealed job). */
+  dropServerKey?(): void;
   sleep(ms: number): Promise<void>;
 }
+
+/** Sends a prepared create; `onAmbiguous` is called when an attempt may have reached the API and was retried. */
+export type CloudPoster = (prepared: PreparedCreate, onAmbiguous: () => void) => Promise<Job>;
 
 export function toUint8(b: Bytes): Uint8Array {
   return b instanceof Uint8Array ? b : new Uint8Array(b);
@@ -194,31 +219,138 @@ export class Jobs {
    * and 5xx/429 answers are retried without printing twice.
    */
   async create(params: CreateJobParams): Promise<Job> {
-    const body = await this.buildCreateBody(params);
-    const org = await this.#ctx.orgId();
-    const send = () =>
-      this.#ctx.http.request<{ job: Job }>({ method: "POST", path: `/v1/orgs/${org}/jobs`, body, idempotent: true });
+    // A blank key means "no key" (one is generated); padded or control
+    // characters are refused rather than changed.
+    params = { ...params, idempotencyKey: checkIdempotencyKey(params.idempotencyKey) };
+    const local = this.#ctx.local;
+    if (local && local.mode !== "cloud") return local.create(params, this);
+    return this.createCloudMode(params);
+  }
+
+  /**
+   * The cloud-mode create (also used for jobs that can't print locally in the
+   * fallback modes): retries per the client's policy, then up to 3 identical
+   * re-sends after a 409 "duplicate"/"being created". The body is built (and
+   * sealed) once, so every attempt sends the same bytes.
+   */
+  async createCloudMode(params: CreateJobParams): Promise<Job> {
+    // Fix the key before the first send so every re-send is identical.
+    const p = { ...params, idempotencyKey: params.idempotencyKey ?? randomUUID() };
+    const prepared = await this.prepareCloud(p);
+    const post: CloudPoster = (prep, onAmbiguous) => this.postCloud(prep, { idempotent: true, onAmbiguousRetry: onAmbiguous });
+    let ambiguous = false;
+    const send = () => post(prepared, () => (ambiguous = true));
+    const unknown = (e: unknown) => new OutcomeUnknownError(this.#ctx.http.baseUrl, prepared.key, e);
     try {
-      return (await send()).job;
+      return await send();
     } catch (err) {
-      // A retried create can race the original, still-running request.
-      // The API then answers 409 "duplicate"; ask again to get that job.
-      if (err instanceof ConflictError && err.code === "duplicate") {
-        await this.#ctx.sleep(1000);
-        return (await send()).job;
-      }
-      throw err;
+      if (p.signal?.aborted) throw err;
+      // The API couldn't decrypt the sealed content (key rotated): seal again
+      // with a fresh key, once (S1).
+      if (p.sealed && sealedRejected(err)) return this.resealAndResend(p, err, ambiguous, post, unknown);
+      if (!isConflictInProgress(err)) throw err;
+      return resendWhileInProgress(send, err, unknown, p.signal);
     }
   }
 
-  /** Gets a job and its history. */
+  /**
+   * Answers a `sealed_content` 400/422: drops the cached server key, fetches
+   * it again, seals again and re-sends once with the same idempotency key.
+   * After an ambiguous attempt (the cloud may have the job) anything but a job
+   * or a definite 409 answer is OutcomeUnknownError; without one, the first
+   * 400 was a definite answer, so the re-send's own error is thrown (a
+   * re-send that may have arrived is still OutcomeUnknownError).
+   * @internal
+   */
+  async resealAndResend(p: CreateJobParams, first: unknown, ambiguous: boolean, post: CloudPoster, unknown: (e: unknown) => Error): Promise<Job> {
+    this.#ctx.dropServerKey?.();
+    let prepared: PreparedCreate;
+    try {
+      prepared = await this.prepareCloud(p);
+    } catch (e) {
+      if (ambiguous) throw unknown(e);
+      throw first; // nothing more was sent: the API's answer stands
+    }
+    let amb = false;
+    const send = () => post(prepared, () => (amb = true));
+    let err: unknown;
+    try {
+      return await send();
+    } catch (e) {
+      err = e;
+    }
+    ambiguous ||= amb;
+    if (p.signal?.aborted) throw ambiguous || sentAndLost(err) ? unknown(p.signal.reason) : p.signal.reason;
+    if (isConflictInProgress(err)) return resendWhileInProgress(send, err, unknown, p.signal);
+    if (ambiguous || cloudAmbiguous(err)) throw unknown(err);
+    throw err;
+  }
+
+  /**
+   * Builds (and seals) a create once. Failures here happen before the job POST
+   * (the org-ID lookup, the server-key fetch for sealing), so they are marked
+   * as not sent; invalid parameters (TypeError) are thrown as is.
+   */
+  async prepareCloud(params: CreateJobParams): Promise<PreparedCreate> {
+    let body: Record<string, unknown>;
+    try {
+      body = await this.buildCreateBody(params);
+    } catch (err) {
+      throw err instanceof TypeError ? err : markNotSent(err);
+    }
+    let org: string;
+    try {
+      org = await this.#ctx.orgId();
+    } catch (err) {
+      throw markNotSent(err);
+    }
+    return { path: `/v1/orgs/${org}/jobs`, body, key: String(body.idempotency_key ?? ""), signal: params.signal };
+  }
+
+  /**
+   * Sends a prepared create. With `once`, a single attempt that reports whether
+   * the request was delivered (see `HttpClient.requestOnce`); otherwise the
+   * client's retry policy.
+   */
+  async postCloud(
+    prepared: PreparedCreate,
+    opts: { once?: boolean; idempotent?: boolean; timeoutMs?: number; maxRetries?: number; onAmbiguousRetry?: () => void } = {},
+  ): Promise<Job> {
+    const req = { method: "POST" as const, path: prepared.path, body: prepared.body, signal: prepared.signal, timeoutMs: opts.timeoutMs, onAmbiguousRetry: opts.onAmbiguousRetry };
+    const res = opts.once
+      ? await this.#ctx.http.requestOnce<{ job?: Job }>(req)
+      : await this.#ctx.http.request<{ job?: Job }>({ ...req, idempotent: true, maxRetries: opts.maxRetries });
+    const job = res?.job;
+    if (!job || typeof job !== "object" || !job.id) {
+      throw new CatzPrintError({ status: 201, code: "invalid_response", message: "The API answered without a job." });
+    }
+    return { ...job, via: "cloud" };
+  }
+
+  /** One cloud create attempt that reports delivery (prepares the body itself). */
+  async createCloudOnce(params: CreateJobParams, overrides: { timeoutMs?: number } = {}): Promise<Job> {
+    return this.postCloud(await this.prepareCloud(params), { once: true, ...overrides });
+  }
+
+  /**
+   * Creates the job through the CatzPrint API only, whatever the local mode.
+   * `overrides` changes the timeout / retries for this call.
+   */
+  async createCloud(params: CreateJobParams, overrides: { timeoutMs?: number; maxRetries?: number } = {}): Promise<Job> {
+    const body = await this.buildCreateBody(params);
+    const org = await this.#ctx.orgId();
+    return this.postCloud({ path: `/v1/orgs/${org}/jobs`, body, key: String(body.idempotency_key ?? ""), signal: params.signal }, overrides);
+  }
+
+  /** Gets a job and its history. Local job IDs (`lj_…`) are read from the station. */
   async get(id: string): Promise<JobWithEvents> {
+    if (id.startsWith("lj_") && this.#ctx.local) return this.#ctx.local.getJob(id);
     const org = await this.#ctx.orgId();
     const res = await this.#ctx.http.request<{ job: Job; events: JobWithEvents["events"] }>({
       method: "GET",
       path: `/v1/orgs/${org}/jobs/${encodeURIComponent(id)}`,
     });
-    return { ...res.job, events: res.events ?? [] };
+    return { ...res.job, via: "cloud", events: res.events ?? [] };
   }
 
   /** Lists jobs, newest first, one page at a time. */

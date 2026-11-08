@@ -1,3 +1,5 @@
+import type { LocalJob } from "./local/types.js";
+
 /** Job lifecycle states. */
 export type JobStatus = "scheduled" | "held" | "queued" | "sent" | "printing" | "printed" | "failed" | "cancelled";
 
@@ -35,6 +37,19 @@ export interface Job {
   sent_at: string | null;
   printed_at: string | null;
   finished_at: string | null;
+  /** True when a station printed the job through its local API (directly or reported later). */
+  printed_locally?: boolean;
+  /** Name of the device that sent a local job. */
+  local_device?: string | null;
+  /** Set on a reconciled job whose idempotency key had already printed elsewhere. */
+  duplicate_of?: string | null;
+  /** In webhook payloads: the station had no cloud connection when it printed. */
+  offline?: boolean;
+  idempotency_key?: string;
+  /** Set by the SDK: "local" when a station took the job, "cloud" when the API did. */
+  via?: "local" | "cloud";
+  /** The station's own view of a local job (`via === "local"`). */
+  local?: LocalJob;
 }
 
 /** One entry of a job's history. */
